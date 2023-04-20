@@ -19,7 +19,7 @@ import {
 } from "@chakra-ui/react";
 import { ChangeEvent, useState } from "react";
 import { useInView } from "react-intersection-observer";
-import { Element2, Element3 } from "src/@types/xml";
+import { Attributes3, Element2, Element3 } from "src/@types/xml";
 import { TYPES_CATEGORIES, TYPES_USAGES } from "src/data/types";
 import useTypesXML from "src/hooks/useTypesXML";
 import { alpha } from "src/utils/colors";
@@ -35,14 +35,14 @@ export default function DBItem({ data }: Props) {
     const [isExpanded, setIsExpanded] = useState(false);
 
     const handleUpdateElement = (name: string, value: string) => {
+        if (!json) return;
+
         if (name === "usage") {
             const elementIndex = data.elements.findIndex(
                 (el) => el.name === name && el.attributes?.name === value
             );
 
             if (elementIndex !== -1) {
-                if (!json) return;
-
                 const temp = { ...json };
 
                 const item = temp.elements[0].elements.find(
@@ -53,8 +53,6 @@ export default function DBItem({ data }: Props) {
 
                 setJson(temp);
             } else {
-                if (!json) return;
-
                 const temp = { ...json };
 
                 const item = temp.elements[0].elements.find(
@@ -71,9 +69,63 @@ export default function DBItem({ data }: Props) {
 
                 setJson(temp);
             }
-        } else if (name === "category") {
-            if (!json) return;
+        } else if (
+            name === "nominal" ||
+            name === "min" ||
+            name === "cost" ||
+            name === "quantmin" ||
+            name === "quantmax" ||
+            name === "lifetime" ||
+            name === "restock"
+        ) {
+            const temp = { ...json };
 
+            const itemIndex = temp.elements[0].elements.findIndex(
+                (el) => el.attributes.name === data.attributes.name
+            );
+
+            const nominalIndex = temp.elements[0].elements[
+                itemIndex
+            ].elements.findIndex((el) => el.name === name);
+
+            if (
+                nominalIndex !== -1 &&
+                temp.elements[0].elements[itemIndex].elements[nominalIndex]
+                    .elements
+            ) {
+                temp.elements[0].elements[itemIndex].elements[
+                    nominalIndex
+                ].elements![0].text = value;
+            }
+
+            setJson(temp);
+        } else if (
+            name.startsWith("count_in") ||
+            name === "crafted" ||
+            name === "deloot"
+        ) {
+            const temp = { ...json };
+
+            const itemIndex = temp.elements[0].elements.findIndex(
+                (el) => el.attributes.name === data.attributes.name
+            );
+
+            const elementIndex = temp.elements[0].elements[
+                itemIndex
+            ].elements.findIndex((el) => el.name === "flags");
+
+            if (
+                elementIndex !== -1 &&
+                temp.elements[0].elements[itemIndex].elements[elementIndex]
+                    .attributes
+            ) {
+                temp.elements[0].elements[itemIndex].elements[
+                    elementIndex
+                ].attributes![name as keyof Attributes3] = value;
+            }
+
+            setJson(temp);
+        } else if (name === "category") {
             const temp = { ...json };
 
             const itemIndex = temp.elements[0].elements.findIndex(
@@ -122,6 +174,9 @@ export default function DBItem({ data }: Props) {
                             )}
                             type="input"
                             description="The natural max of this item that will spawn"
+                            onChange={(value) =>
+                                handleUpdateElement("nominal", value)
+                            }
                         />
 
                         <DBItemFormItem
@@ -132,6 +187,9 @@ export default function DBItem({ data }: Props) {
                             )}
                             type="input"
                             description="The amount at which this item will begin to restock"
+                            onChange={(value) =>
+                                handleUpdateElement("min", value)
+                            }
                         />
 
                         <DBItemFormItem
@@ -142,6 +200,9 @@ export default function DBItem({ data }: Props) {
                             )}
                             type="input"
                             description="How long the item will last before despawning"
+                            onChange={(value) =>
+                                handleUpdateElement("lifetime", value)
+                            }
                         />
 
                         <DBItemFormItem
@@ -152,6 +213,9 @@ export default function DBItem({ data }: Props) {
                             )}
                             type="input"
                             description="How long it takes for the item to restock"
+                            onChange={(value) =>
+                                handleUpdateElement("restock", value)
+                            }
                         />
 
                         <DBItemFormItem
@@ -161,6 +225,9 @@ export default function DBItem({ data }: Props) {
                                 (el) => el.name === "cost"
                             )}
                             type="input"
+                            onChange={(value) =>
+                                handleUpdateElement("cost", value)
+                            }
                         />
 
                         <DBItemFormItem
@@ -171,6 +238,9 @@ export default function DBItem({ data }: Props) {
                             )}
                             type="input"
                             description="The minimum internal percentage this item can spawn with. Example: Percentage of rounds in a magazine."
+                            onChange={(value) =>
+                                handleUpdateElement("quantmin", value)
+                            }
                         />
 
                         <DBItemFormItem
@@ -181,6 +251,9 @@ export default function DBItem({ data }: Props) {
                             )}
                             type="input"
                             description="The maximum internal percentage this item can spawn with. Example: Percentage of rounds in a magazine."
+                            onChange={(value) =>
+                                handleUpdateElement("quantmax", value)
+                            }
                         />
 
                         <DBItemFormItem
@@ -192,6 +265,12 @@ export default function DBItem({ data }: Props) {
                             }
                             type="checkbox"
                             description="If the item is in storage, should it be counted towards the spawn conditions?"
+                            onChange={(value) =>
+                                handleUpdateElement(
+                                    "count_in_cargo",
+                                    value ? "1" : "0"
+                                )
+                            }
                         />
 
                         <DBItemFormItem
@@ -203,6 +282,12 @@ export default function DBItem({ data }: Props) {
                             }
                             type="checkbox"
                             description="If the item is in a stash, should it be counted towards the spawn conditions?"
+                            onChange={(value) =>
+                                handleUpdateElement(
+                                    "count_in_hoarder",
+                                    value ? "1" : "0"
+                                )
+                            }
                         />
 
                         <DBItemFormItem
@@ -214,6 +299,12 @@ export default function DBItem({ data }: Props) {
                             }
                             type="checkbox"
                             description="If the item is on the ground, should it be counted towards the spawn conditions?"
+                            onChange={(value) =>
+                                handleUpdateElement(
+                                    "count_in_map",
+                                    value ? "1" : "0"
+                                )
+                            }
                         />
 
                         <DBItemFormItem
@@ -225,6 +316,12 @@ export default function DBItem({ data }: Props) {
                             }
                             type="checkbox"
                             description="If the item is in a player's inventory, should it be counted towards the spawn conditions?"
+                            onChange={(value) =>
+                                handleUpdateElement(
+                                    "count_in_player",
+                                    value ? "1" : "0"
+                                )
+                            }
                         />
 
                         <DBItemFormItem
@@ -235,6 +332,12 @@ export default function DBItem({ data }: Props) {
                                     ?.attributes?.crafted
                             }
                             type="checkbox"
+                            onChange={(value) =>
+                                handleUpdateElement(
+                                    "crafted",
+                                    value ? "1" : "0"
+                                )
+                            }
                         />
 
                         <DBItemFormItem
@@ -245,6 +348,9 @@ export default function DBItem({ data }: Props) {
                                     ?.attributes?.deloot
                             }
                             type="checkbox"
+                            onChange={(value) =>
+                                handleUpdateElement("deloot", value ? "1" : "0")
+                            }
                         />
 
                         <GridItem colSpan={6} />
@@ -256,6 +362,11 @@ export default function DBItem({ data }: Props) {
                                 (el) => el.name === "category"
                             )}
                             label="Category"
+                            value={
+                                data.elements.filter(
+                                    (el) => el.name === "category"
+                                )[0].attributes?.name ?? ""
+                            }
                             description="The category this item belongs to"
                             items={TYPES_CATEGORIES}
                             onChange={(value) =>
@@ -293,6 +404,7 @@ type DBItemFormItemProps = (
           element?: Element3[];
           type: "select";
           items: string[];
+          value?: string;
           onChange?: (value: string) => void;
       }
     | {
@@ -343,9 +455,16 @@ function DBItemFormItem(props: DBItemFormItemProps) {
 
                     {props.type === "select" && (
                         <Select
-                            value=""
+                            value={props.value}
                             onChange={handleChange}
                             color="text.light"
+                            placeholder="Select an option..."
+                            sx={{
+                                "& option": {
+                                    backgroundColor: "grey.600",
+                                    color: "text.light",
+                                },
+                            }}
                         >
                             {props.items.map((item, itemIndex) => (
                                 <option key={itemIndex} value={item}>
