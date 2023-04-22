@@ -1,6 +1,6 @@
 // ----------------------------------------------------------------------
 
-import { Button, Text } from '@chakra-ui/react';
+import { Button, Text } from "@chakra-ui/react";
 
 type Props = {
     onDrop?: (file: File) => void;
@@ -11,18 +11,16 @@ export default function DragDrop({ onDrop }: Props) {
         <Button
             as="label"
             fontWeight="light"
-            borderRadius="16px"
             borderStyle="solid"
             borderWidth="2px"
             borderColor="grey.600"
             bgColor="transparent"
             _hover={{
                 // bgColor: 'grey.600',
-                borderWidth: '2px',
-                borderColor: 'grey.600',
+                borderWidth: "2px",
+                borderColor: "grey.600",
             }}
             cursor="pointer"
-            minHeight="400px"
         >
             <input
                 accept=".xml"

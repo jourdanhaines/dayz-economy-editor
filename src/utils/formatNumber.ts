@@ -42,3 +42,16 @@ export function fData(number: string | number) {
 export function clamp(number: number, min: number, max: number) {
     return number < min ? min : number > max ? max : number;
 }
+
+export function generateRGBHexFromLargeNumber(number: number) {
+    const r = Math.floor((number / 1000000) % 255);
+    const g = Math.floor((number / 1000) % 255);
+    const b = Math.floor(number % 255);
+
+    // Convert each to hex
+    const rHex = r.toString(16).padStart(2, "0");
+    const gHex = g.toString(16).padStart(2, "0");
+    const bHex = b.toString(16).padStart(2, "0");
+
+    return `#${rHex}${gHex}${bHex}`;
+}

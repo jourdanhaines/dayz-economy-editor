@@ -10,8 +10,8 @@ import {
     Tabs,
 } from "@chakra-ui/react";
 import { ReactElement } from "react";
-import MapEditorTab from "src/components/MapEditorTab";
 import Page from "src/components/Page";
+import MapEditorTab from "src/components/mapeditor/MapEditorTab";
 import { MapEditorProvider } from "src/contexts/MapEditorContext";
 import { TypesXMLProvider } from "src/contexts/TypesXMLContext";
 import Layout from "src/layouts";

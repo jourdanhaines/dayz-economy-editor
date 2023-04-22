@@ -1,6 +1,12 @@
 // ----------------------------------------------------------------------
 
-import { FormControl, FormLabel, Select, Stack } from "@chakra-ui/react";
+import {
+    Divider,
+    FormControl,
+    FormLabel,
+    Select,
+    Stack,
+} from "@chakra-ui/react";
 import { MAPS } from "src/data/map";
 import useMapEditor from "src/hooks/useMapEditor";
 import MapEditor from "./MapEditor";
@@ -9,7 +15,7 @@ export default function MapEditorTab() {
     const { map, setMap } = useMapEditor();
 
     return (
-        <Stack spacing={3}>
+        <Stack spacing={8}>
             <FormControl>
                 <FormLabel>Choose map</FormLabel>
 
@@ -36,6 +42,8 @@ export default function MapEditorTab() {
                     ))}
                 </Select>
             </FormControl>
+
+            {map && <Divider />}
 
             <MapEditor />
         </Stack>

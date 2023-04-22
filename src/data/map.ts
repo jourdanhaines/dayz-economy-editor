@@ -7,12 +7,12 @@ export type MapEditorType = {
 export const MAPS: MapEditorType[] = [
     {
         name: "Chernarus+",
-        image: "https://external-preview.redd.it/VPCyZ99wgzLkdQjq4uBqgaEgjml_amn2Qzx-qk1tPIo.jpg?auto=webp&v=enabled&s=53b6a0e2c5f730ae122425808e908e33df8f596c",
+        image: "https://github.com/BohemiaInteractive/DayZ-Central-Economy/blob/master/CETool/ChernarusPlus/map.png?raw=true",
         size: "15360",
     },
     {
         name: "Livonia",
-        image: "https://i.redd.it/vzfkq2r68f241.jpg",
+        image: "https://github.com/BohemiaInteractive/DayZ-Central-Economy/blob/master/CETool/Enoch/map.png?raw=true",
         size: "12800",
     },
     {

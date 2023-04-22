@@ -3,7 +3,9 @@
 import { Box, Skeleton, Text } from "@chakra-ui/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MapEditorType } from "src/data/map";
+import useMapEditor from "src/hooks/useMapEditor";
 import { alpha } from "src/utils/colors";
+import { generateRGBHexFromLargeNumber } from "src/utils/formatNumber";
 
 type Props = {
     map: MapEditorType;
@@ -39,6 +41,8 @@ export default function Map({ map }: Props) {
     const lastOffsetRef = useRef<Point>(ORIGIN);
     const isResetRef = useRef<boolean>(false);
 
+    const { territories } = useMapEditor();
+
     const [context, setContext] = useState<CanvasRenderingContext2D | null>(
         null
     );
@@ -46,6 +50,14 @@ export default function Map({ map }: Props) {
     const [mousePos, setMousePos] = useState<Point>(ORIGIN);
     const [viewportTopLeft, setViewportTopLeft] = useState<Point>(ORIGIN);
     const [scale, setScale] = useState(1);
+
+    const territoryTypeList = useMemo(() => {
+        if (!territories) return undefined;
+
+        return territories.elements
+            .find((el) => el.name === "zg-config")
+            ?.elements?.find((el) => el.name === "territory-type-list");
+    }, [territories]);
 
     const background = useMemo(
         () =>
@@ -144,6 +156,51 @@ export default function Map({ map }: Props) {
             context.setTransform(storedTransform);
 
             context.drawImage(background, 0, 0);
+
+            // draw territories
+            if (
+                territories &&
+                territoryTypeList &&
+                territoryTypeList.elements
+            ) {
+                for (const territoryType of territoryTypeList.elements) {
+                    if (!territoryType.elements) continue;
+
+                    for (const territory of territoryType.elements) {
+                        if (!territory.elements) continue;
+
+                        const color = alpha(
+                            `${generateRGBHexFromLargeNumber(
+                                Number(territory?.attributes?.color ?? 0)
+                            )}`,
+                            0.66
+                        );
+
+                        context.fillStyle = color;
+                        context.beginPath();
+
+                        for (const zone of territory.elements) {
+                            const spawnXPercentage =
+                                Number(zone.attributes.x) / Number(map.size);
+                            const spawnX = spawnXPercentage * background.width;
+
+                            const spawnYPercentage =
+                                Number(zone.attributes.z) / Number(map.size);
+                            const spawnY =
+                                background.height -
+                                spawnYPercentage * background.height;
+
+                            const radiusPercentage =
+                                Number(zone.attributes.r) / Number(map.size);
+                            const radius = radiusPercentage * background.width;
+
+                            context.moveTo(spawnX + radius, spawnY);
+                            context.arc(spawnX, spawnY, radius, 0, 2 * Math.PI);
+                        }
+                        context.fill();
+                    }
+                }
+            }
         }
     }, [background, context, scale, offset, viewportTopLeft]);
 
@@ -262,7 +319,7 @@ export default function Map({ map }: Props) {
                     zIndex: 1,
                     width: containerRef.current?.clientWidth,
                     height: containerRef.current?.clientHeight,
-                    backgroundColor: "black",
+                    backgroundColor: "#1D1D1D",
                 }}
             />
 
