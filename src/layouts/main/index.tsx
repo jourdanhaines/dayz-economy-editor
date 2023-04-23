@@ -1,6 +1,6 @@
 // ----------------------------------------------------------------------
 
-import { Box } from "@chakra-ui/react";
+import { Box, Container } from "@chakra-ui/react";
 import { ReactNode } from "react";
 
 type Props = {
@@ -9,8 +9,8 @@ type Props = {
 
 export default function MainLayout({ children }: Props) {
     return (
-        <Box as="main" m={0} mt={16} p={8} w="100vh" position="relative">
-            {children}
+        <Box as="main" m={0} mt={16} p={8} w="100vw" position="relative">
+            <Container maxWidth="7xl">{children}</Container>
         </Box>
     );
 }

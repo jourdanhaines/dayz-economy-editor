@@ -1,26 +1,34 @@
 // ----------------------------------------------------------------------
 
-import { Box, Code, Flex, Grid, GridItem, Stack, Text } from "@chakra-ui/react";
-import { useEffect, useMemo, useState } from "react";
+import {
+    Accordion,
+    AccordionButton,
+    AccordionIcon,
+    AccordionItem,
+    AccordionPanel,
+    Button,
+    Code,
+    Grid,
+    GridItem,
+    Heading,
+    Stack,
+    Text,
+} from "@chakra-ui/react";
+import { useEffect, useState } from "react";
 import useMapEditor from "src/hooks/useMapEditor";
-import { alpha } from "src/utils/colors";
-import { generateRGBHexFromLargeNumber } from "src/utils/formatNumber";
 import convert from "xml-js";
 import DragDrop from "../DragDrop";
 import Map from "./Map";
+import AreaFlagTypes from "./sidebar/AreaFlagTypes";
+import SelectedArea from "./sidebar/SelectedArea";
+import SelectedAreaEvents from "./sidebar/SelectedAreaEvents";
 
 export default function MapEditor() {
-    const { map, territories, setTerritories } = useMapEditor();
+    const { map, territories, setTerritories, download, events, setEvents } =
+        useMapEditor();
 
     const [xmlFile, setXmlFile] = useState<File | null>(null);
-
-    const territoryTypeList = useMemo(() => {
-        if (!territories) return undefined;
-
-        return territories.elements
-            .find((el) => el.name === "zg-config")
-            ?.elements?.find((el) => el.name === "territory-type-list");
-    }, [territories]);
+    const [eventsXml, setEventsXml] = useState<File | null>(null);
 
     useEffect(() => {
         (async () => {
@@ -33,12 +41,23 @@ export default function MapEditor() {
         })();
     }, [xmlFile]);
 
+    useEffect(() => {
+        (async () => {
+            if (!eventsXml) return;
+
+            const xml = await eventsXml.text();
+            const json = convert.xml2json(xml, { compact: false, spaces: 4 });
+
+            setEvents(JSON.parse(json));
+        })();
+    }, [eventsXml]);
+
     if (!map) return null;
 
     return (
         <Grid templateColumns="repeat(12, 1fr)" gap={4}>
-            <GridItem colSpan={6}>
-                {!xmlFile && (
+            <GridItem colSpan={3}>
+                {!xmlFile && !territories && (
                     <Stack>
                         <Text>
                             Drag &amp; drop your <Code>Areaflags.xml</Code> file
@@ -50,60 +69,76 @@ export default function MapEditor() {
                 )}
 
                 {territories && (
-                    <Flex gap={3} flexWrap="wrap">
-                        {territoryTypeList &&
-                            territoryTypeList.elements?.map(
-                                (territoryType, index) =>
-                                    territoryType.elements?.map(
-                                        (territory, territoryIndex) => {
-                                            if (
-                                                !territory.elements ||
-                                                territory.elements.length === 0
-                                            )
-                                                return null;
+                    <>
+                        <Stack direction="row" spacing={3} mb={3}>
+                            <Button size="sm" onClick={download}>
+                                Save Changes
+                            </Button>
 
-                                            return (
-                                                <Stack
-                                                    key={`${index}_${territoryIndex}`}
-                                                    direction="row"
-                                                    spacing={1.5}
-                                                    alignItems="center"
-                                                >
-                                                    <Box
-                                                        width="16px"
-                                                        height="16px"
-                                                        bgColor={alpha(
-                                                            `${generateRGBHexFromLargeNumber(
-                                                                Number(
-                                                                    territory
-                                                                        ?.attributes
-                                                                        ?.color ??
-                                                                        0
-                                                                )
-                                                            )}`,
-                                                            0.66
-                                                        )}
-                                                    />
+                            <Button size="sm" variant="outline" disabled>
+                                Export Territories
+                            </Button>
+                        </Stack>
 
-                                                    <Text>
-                                                        {
-                                                            territory
-                                                                .elements[0]
-                                                                .attributes.name
-                                                        }
-                                                    </Text>
-                                                </Stack>
-                                            );
-                                        }
-                                    )
-                            )}
-                    </Flex>
+                        <Accordion defaultIndex={[0]} allowMultiple>
+                            <AccordionItem>
+                                <AccordionButton px={0}>
+                                    <Heading
+                                        as="span"
+                                        flex="1"
+                                        textAlign="start"
+                                        fontSize="24px"
+                                    >
+                                        Territories
+                                    </Heading>
+
+                                    <AccordionIcon />
+                                </AccordionButton>
+
+                                <AccordionPanel px={0}>
+                                    <AreaFlagTypes />
+                                </AccordionPanel>
+                            </AccordionItem>
+
+                            <AccordionItem>
+                                <AccordionButton px={0}>
+                                    <Heading
+                                        as="span"
+                                        flex="1"
+                                        textAlign="start"
+                                        fontSize="24px"
+                                    >
+                                        Selected Area
+                                    </Heading>
+
+                                    <AccordionIcon />
+                                </AccordionButton>
+
+                                <AccordionPanel px={0}>
+                                    <SelectedArea />
+                                </AccordionPanel>
+                            </AccordionItem>
+                        </Accordion>
+                    </>
                 )}
             </GridItem>
 
-            <GridItem colSpan={6}></GridItem>
+            <GridItem colSpan={9}>{<Map map={map} />}</GridItem>
 
-            <GridItem colSpan={12}>{<Map map={map} />}</GridItem>
+            <GridItem colSpan={12}>
+                {territories && !events && (
+                    <Stack>
+                        <Text>
+                            Drag &amp; drop your <Code>events.xml</Code> file
+                            below.
+                        </Text>
+
+                        <DragDrop onDrop={(file) => setEventsXml(file)} />
+                    </Stack>
+                )}
+
+                {events && <SelectedAreaEvents />}
+            </GridItem>
         </Grid>
     );
 }

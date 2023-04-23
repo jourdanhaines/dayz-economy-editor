@@ -1,11 +1,11 @@
 // ----------------------------------------------------------------------
 
-import { Box, Skeleton, Text } from "@chakra-ui/react";
+import { Box, Divider, Flex, Skeleton, Text } from "@chakra-ui/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AreaFlagType } from "src/@types/map";
 import { MapEditorType } from "src/data/map";
 import useMapEditor from "src/hooks/useMapEditor";
-import { alpha } from "src/utils/colors";
-import { generateRGBHexFromLargeNumber } from "src/utils/formatNumber";
+import { alpha, getAreaFlagColorFromName } from "src/utils/colors";
 
 type Props = {
     map: MapEditorType;
@@ -41,7 +41,13 @@ export default function Map({ map }: Props) {
     const lastOffsetRef = useRef<Point>(ORIGIN);
     const isResetRef = useRef<boolean>(false);
 
-    const { territories } = useMapEditor();
+    const {
+        territories,
+        isHiddenTerritory,
+        hiddenTerritories,
+        setSelectedAreaType,
+        selectedAreaType,
+    } = useMapEditor();
 
     const [context, setContext] = useState<CanvasRenderingContext2D | null>(
         null
@@ -50,14 +56,9 @@ export default function Map({ map }: Props) {
     const [mousePos, setMousePos] = useState<Point>(ORIGIN);
     const [viewportTopLeft, setViewportTopLeft] = useState<Point>(ORIGIN);
     const [scale, setScale] = useState(1);
-
-    const territoryTypeList = useMemo(() => {
-        if (!territories) return undefined;
-
-        return territories.elements
-            .find((el) => el.name === "zg-config")
-            ?.elements?.find((el) => el.name === "territory-type-list");
-    }, [territories]);
+    const [areaTypeHover, setAreaTypeHover] = useState<AreaFlagType | null>(
+        null
+    );
 
     const background = useMemo(
         () =>
@@ -66,6 +67,20 @@ export default function Map({ map }: Props) {
                 : new Image(),
         [map]
     );
+
+    const mousePositionInMap = useMemo(() => {
+        return {
+            x:
+                ((viewportTopLeft.x + mousePos.x / scale) /
+                    (background?.width ?? 0)) *
+                Number(map.size),
+            y:
+                Number(map.size) -
+                ((viewportTopLeft.y + mousePos.y / scale) /
+                    (background?.height ?? 0)) *
+                    Number(map.size),
+        };
+    }, [viewportTopLeft.x, mousePos.x, mousePos.y, scale, background]);
 
     // reset
     const reset = useCallback(
@@ -128,6 +143,19 @@ export default function Map({ map }: Props) {
         [mouseMove, mouseUp]
     );
 
+    const handleMouseUp = (event: React.MouseEvent<HTMLCanvasElement>) => {
+        if (event.button === 0) {
+            if (
+                event.pageX - lastMousePosRef.current.x <= 5 &&
+                event.pageX - lastMousePosRef.current.x >= -5 &&
+                event.pageY - lastMousePosRef.current.y <= 5 &&
+                event.pageY - lastMousePosRef.current.y >= -5
+            ) {
+                setSelectedAreaType(areaTypeHover);
+            }
+        }
+    };
+
     const handleDisableScroll = (e: WheelEvent) => {
         e.preventDefault();
     };
@@ -158,25 +186,21 @@ export default function Map({ map }: Props) {
             context.drawImage(background, 0, 0);
 
             // draw territories
-            if (
-                territories &&
-                territoryTypeList &&
-                territoryTypeList.elements
-            ) {
-                for (const territoryType of territoryTypeList.elements) {
+            if (territories && territories.elements) {
+                for (const territoryType of territories.elements) {
                     if (!territoryType.elements) continue;
 
                     for (const territory of territoryType.elements) {
-                        if (!territory.elements) continue;
+                        if (
+                            !territory.elements ||
+                            isHiddenTerritory(territory.attributes.name)
+                        )
+                            continue;
 
-                        const color = alpha(
-                            `${generateRGBHexFromLargeNumber(
-                                Number(territory?.attributes?.color ?? 0)
-                            )}`,
+                        context.fillStyle = alpha(
+                            getAreaFlagColorFromName(territory.attributes.name),
                             0.66
                         );
-
-                        context.fillStyle = color;
                         context.beginPath();
 
                         for (const zone of territory.elements) {
@@ -197,12 +221,96 @@ export default function Map({ map }: Props) {
                             context.moveTo(spawnX + radius, spawnY);
                             context.arc(spawnX, spawnY, radius, 0, 2 * Math.PI);
                         }
+
+                        if (selectedAreaType) {
+                            const spawnXPercentage =
+                                Number(selectedAreaType.x) / Number(map.size);
+                            const spawnX = spawnXPercentage * background.width;
+
+                            const spawnYPercentage =
+                                Number(selectedAreaType.z) / Number(map.size);
+                            const spawnY =
+                                background.height -
+                                spawnYPercentage * background.height;
+
+                            const radiusPercentage =
+                                Number(selectedAreaType.r) / Number(map.size);
+                            const radius = radiusPercentage * background.width;
+
+                            const previousFill = context.fillStyle;
+
+                            context.fillStyle = "transparent";
+                            context.strokeStyle = "#FF00FF";
+                            context.setLineDash([5, 5]);
+                            context.lineWidth = 2;
+
+                            context.strokeRect(
+                                spawnX - radius,
+                                spawnY - radius,
+                                radius * 2,
+                                radius * 2
+                            );
+
+                            context.fillStyle = previousFill;
+                        }
+
                         context.fill();
                     }
                 }
             }
         }
-    }, [background, context, scale, offset, viewportTopLeft]);
+    }, [
+        background,
+        context,
+        scale,
+        offset,
+        viewportTopLeft,
+        hiddenTerritories,
+        territories,
+        selectedAreaType,
+    ]);
+
+    useEffect(() => {
+        if (!background) return;
+
+        // Check if mouse position in world is colliding with a territory
+        if (territories && territories.elements) {
+            for (const territoryType of territories.elements) {
+                if (!territoryType.elements || !territoryType.attributes?.name)
+                    continue;
+
+                for (const territory of territoryType.elements) {
+                    if (
+                        !territory.elements ||
+                        isHiddenTerritory(territory.attributes.name)
+                    )
+                        continue;
+
+                    for (const zone of territory.elements) {
+                        const spawnX = Number(zone.attributes.x);
+                        const spawnY = Number(zone.attributes.z);
+                        const radius = Number(zone.attributes.r);
+
+                        if (
+                            mousePositionInMap.x > spawnX - radius &&
+                            mousePositionInMap.x < spawnX + radius &&
+                            mousePositionInMap.y > spawnY - radius &&
+                            mousePositionInMap.y < spawnY + radius
+                        ) {
+                            setAreaTypeHover({
+                                ...zone.attributes,
+                                territoryType: territoryType.attributes.name,
+                                territoryName: territory.attributes.name,
+                            });
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
+        setAreaTypeHover(null);
+    }, [background, mousePositionInMap.x, mousePositionInMap.y]);
 
     // update last offset
     useEffect(() => {
@@ -311,6 +419,7 @@ export default function Map({ map }: Props) {
                 ref={canvasRef}
                 width={containerRef.current?.clientWidth}
                 height={containerRef.current?.clientHeight}
+                onMouseUp={handleMouseUp}
                 onMouseDown={startPan}
                 style={{
                     position: "absolute",
@@ -332,22 +441,52 @@ export default function Map({ map }: Props) {
                 left="50%"
                 zIndex={2}
                 transform="translateX(-50%)"
+                pointerEvents="none"
             >
                 <Text textAlign="center">
-                    {(
-                        ((viewportTopLeft.x + mousePos.x / scale) /
-                            (background?.width ?? 0)) *
-                        Number(map.size)
-                    ).toFixed(2)}{" "}
-                    /{" "}
-                    {(
-                        Number(map.size) -
-                        ((viewportTopLeft.y + mousePos.y / scale) /
-                            (background?.height ?? 0)) *
-                            Number(map.size)
-                    ).toFixed(2)}
+                    {mousePositionInMap.x.toFixed(2)} /{" "}
+                    {mousePositionInMap.y.toFixed(2)}
                 </Text>
+                <Text textAlign="center">Scale: {scale.toFixed(2)}</Text>
             </Box>
+
+            {areaTypeHover && (
+                <Box
+                    px={3}
+                    py={2}
+                    bgColor={alpha("#000000", 0.8)}
+                    position="absolute"
+                    top={`${mousePos.y}px`}
+                    left={`${mousePos.x}px`}
+                    transform="translate(-50%, calc(-100% - 8px))"
+                    zIndex={2}
+                    pointerEvents="none"
+                >
+                    <Flex alignItems="center" justifyContent="center" mb={2}>
+                        <Box
+                            borderRadius="50%"
+                            border="1px solid black"
+                            w="12px"
+                            h="12px"
+                            bgColor={getAreaFlagColorFromName(
+                                areaTypeHover.territoryName
+                            )}
+                        />
+                    </Flex>
+
+                    <Text textAlign="center">{areaTypeHover.name}</Text>
+                    <Text textAlign="center">
+                        {areaTypeHover.territoryName}
+                    </Text>
+
+                    <Divider my={2} />
+
+                    <Text textAlign="center">
+                        X: {areaTypeHover.x}, Y: {areaTypeHover.z}
+                    </Text>
+                    <Text textAlign="center">Radius: {areaTypeHover.r}</Text>
+                </Box>
+            )}
 
             {!context && (
                 <Skeleton
