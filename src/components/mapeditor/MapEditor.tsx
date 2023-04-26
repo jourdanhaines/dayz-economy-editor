@@ -20,15 +20,25 @@ import convert from "xml-js";
 import DragDrop from "../DragDrop";
 import Map from "./Map";
 import AreaFlagTypes from "./sidebar/AreaFlagTypes";
+import EventSpawns from "./sidebar/EventSpawns";
 import SelectedArea from "./sidebar/SelectedArea";
 import SelectedAreaEvents from "./sidebar/SelectedAreaEvents";
 
 export default function MapEditor() {
-    const { map, territories, setTerritories, download, events, setEvents } =
-        useMapEditor();
+    const {
+        map,
+        territories,
+        setTerritories,
+        download,
+        events,
+        setEvents,
+        eventSpawns,
+        setEventSpawns,
+    } = useMapEditor();
 
     const [xmlFile, setXmlFile] = useState<File | null>(null);
     const [eventsXml, setEventsXml] = useState<File | null>(null);
+    const [eventSpawnsXml, setEventSpawnsXml] = useState<File | null>(null);
 
     useEffect(() => {
         (async () => {
@@ -51,6 +61,17 @@ export default function MapEditor() {
             setEvents(JSON.parse(json));
         })();
     }, [eventsXml]);
+
+    useEffect(() => {
+        (async () => {
+            if (!eventSpawnsXml) return;
+
+            const xml = await eventSpawnsXml.text();
+            const json = convert.xml2json(xml, { compact: false, spaces: 4 });
+            console.log(json);
+            setEventSpawns(JSON.parse(json));
+        })();
+    }, [eventSpawnsXml]);
 
     if (!map) return null;
 
@@ -116,6 +137,41 @@ export default function MapEditor() {
 
                                 <AccordionPanel px={0}>
                                     <SelectedArea />
+                                </AccordionPanel>
+                            </AccordionItem>
+
+                            <AccordionItem>
+                                <AccordionButton px={0}>
+                                    <Heading
+                                        as="span"
+                                        flex="1"
+                                        textAlign="start"
+                                        fontSize="24px"
+                                    >
+                                        Event Spawns
+                                    </Heading>
+
+                                    <AccordionIcon />
+                                </AccordionButton>
+
+                                <AccordionPanel px={0}>
+                                    {!eventSpawnsXml && !eventSpawns && (
+                                        <Stack>
+                                            <Text>
+                                                Drag &amp; drop your{" "}
+                                                <Code>cfgeventspawns.xml</Code>{" "}
+                                                file below.
+                                            </Text>
+
+                                            <DragDrop
+                                                onDrop={(file) =>
+                                                    setEventSpawnsXml(file)
+                                                }
+                                            />
+                                        </Stack>
+                                    )}
+
+                                    {eventSpawns && <EventSpawns />}
                                 </AccordionPanel>
                             </AccordionItem>
                         </Accordion>

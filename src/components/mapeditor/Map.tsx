@@ -2,8 +2,10 @@
 
 import { Box, Divider, Flex, Skeleton, Text } from "@chakra-ui/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AreaFlagType } from "src/@types/map";
+import { AreaFlagType, EventSpawnType } from "src/@types/map";
+import { EVENT_SPAWN_BLACKLIST } from "src/data/blacklist";
 import { MapEditorType } from "src/data/map";
+import { SVG_PATHS } from "src/data/svg_paths";
 import useMapEditor from "src/hooks/useMapEditor";
 import { alpha, getAreaFlagColorFromName } from "src/utils/colors";
 
@@ -47,6 +49,9 @@ export default function Map({ map }: Props) {
         hiddenTerritories,
         setSelectedAreaType,
         selectedAreaType,
+        eventSpawns,
+        isHiddenEventSpawn,
+        hiddenEventSpawns,
     } = useMapEditor();
 
     const [context, setContext] = useState<CanvasRenderingContext2D | null>(
@@ -59,6 +64,8 @@ export default function Map({ map }: Props) {
     const [areaTypeHover, setAreaTypeHover] = useState<AreaFlagType | null>(
         null
     );
+    const [eventSpawnHover, setEventSpawnHover] =
+        useState<EventSpawnType | null>(null);
 
     const background = useMemo(
         () =>
@@ -258,6 +265,62 @@ export default function Map({ map }: Props) {
                     }
                 }
             }
+
+            // draw event spawns
+            if (eventSpawns) {
+                for (const spawn of eventSpawns.elements) {
+                    if (
+                        EVENT_SPAWN_BLACKLIST.includes(spawn.attributes.name) ||
+                        isHiddenEventSpawn(spawn.attributes.name) ||
+                        !spawn.elements
+                    )
+                        continue;
+
+                    context.fillStyle = alpha(
+                        getAreaFlagColorFromName(spawn.attributes.name),
+                        0.66
+                    );
+
+                    context.beginPath();
+                    const path = new Path2D();
+                    for (const zone of spawn.elements) {
+                        if (
+                            !zone.attributes ||
+                            zone.attributes.x === undefined ||
+                            zone.attributes.z === undefined ||
+                            zone.attributes.a === undefined
+                        )
+                            continue;
+
+                        const spawnXPercentage =
+                            Number(zone.attributes.x) / Number(map.size);
+                        const spawnX = spawnXPercentage * background.width;
+
+                        const spawnYPercentage =
+                            Number(zone.attributes.z) / Number(map.size);
+                        const spawnY =
+                            background.height -
+                            spawnYPercentage * background.height;
+
+                        const radiusPercentage = 100 / Number(map.size);
+                        const radius = radiusPercentage * background.width;
+
+                        context.fillStyle = SVG_PATHS[spawn.attributes.name]
+                            ? SVG_PATHS[spawn.attributes.name].color
+                            : "#1D1D1D";
+
+                        const newPath = new Path2D(
+                            SVG_PATHS[spawn.attributes.name]
+                                ? SVG_PATHS[spawn.attributes.name].path
+                                : "M12 17q.425 0 .713-.288T13 16q0-.425-.288-.713T12 15q-.425 0-.713.288T11 16q0 .425.288.713T12 17Zm-1-4h2V7h-2v6Zm1 9q-2.075 0-3.9-.788t-3.175-2.137q-1.35-1.35-2.137-3.175T2 12q0-2.075.788-3.9t2.137-3.175q1.35-1.35 3.175-2.137T12 2q2.075 0 3.9.788t3.175 2.137q1.35 1.35 2.138 3.175T22 12q0 2.075-.788 3.9t-2.137 3.175q-1.35 1.35-3.175 2.138T12 22Z"
+                        );
+                        path.addPath(newPath, { e: spawnX, f: spawnY });
+                    }
+
+                    path.closePath();
+                    context.fill(path);
+                }
+            }
         }
     }, [
         background,
@@ -268,6 +331,8 @@ export default function Map({ map }: Props) {
         hiddenTerritories,
         territories,
         selectedAreaType,
+        eventSpawns,
+        hiddenEventSpawns,
     ]);
 
     useEffect(() => {
@@ -309,7 +374,48 @@ export default function Map({ map }: Props) {
             }
         }
 
+        if (eventSpawns) {
+            for (const spawn of eventSpawns.elements) {
+                if (
+                    EVENT_SPAWN_BLACKLIST.includes(spawn.attributes.name) ||
+                    isHiddenEventSpawn(spawn.attributes.name) ||
+                    !spawn.elements
+                )
+                    continue;
+
+                for (const zone of spawn.elements) {
+                    if (
+                        !zone.attributes ||
+                        zone.attributes.x === undefined ||
+                        zone.attributes.z === undefined ||
+                        zone.attributes.a === undefined
+                    )
+                        continue;
+
+                    const spawnX = Number(zone.attributes.x);
+                    const spawnY = Number(zone.attributes.z);
+                    const radius = 24;
+
+                    if (
+                        mousePositionInMap.x > spawnX - radius &&
+                        mousePositionInMap.x < spawnX + radius &&
+                        mousePositionInMap.y > spawnY - radius &&
+                        mousePositionInMap.y < spawnY + radius
+                    ) {
+                        setEventSpawnHover({
+                            name: spawn.attributes.name,
+                            x: zone.attributes.x,
+                            z: zone.attributes.z,
+                            a: zone.attributes.a,
+                        });
+                        return;
+                    }
+                }
+            }
+        }
+
         setAreaTypeHover(null);
+        setEventSpawnHover(null);
     }, [background, mousePositionInMap.x, mousePositionInMap.y]);
 
     // update last offset
@@ -485,6 +591,40 @@ export default function Map({ map }: Props) {
                         X: {areaTypeHover.x}, Y: {areaTypeHover.z}
                     </Text>
                     <Text textAlign="center">Radius: {areaTypeHover.r}</Text>
+                </Box>
+            )}
+
+            {eventSpawnHover && (
+                <Box
+                    px={3}
+                    py={2}
+                    bgColor={alpha("#000000", 0.8)}
+                    position="absolute"
+                    top={`${mousePos.y}px`}
+                    left={`${mousePos.x}px`}
+                    transform="translate(-50%, calc(-100% - 8px))"
+                    zIndex={2}
+                    pointerEvents="none"
+                >
+                    <Flex alignItems="center" justifyContent="center" mb={2}>
+                        <Box
+                            borderRadius="50%"
+                            border="1px solid black"
+                            w="12px"
+                            h="12px"
+                            bgColor={getAreaFlagColorFromName(
+                                eventSpawnHover.name
+                            )}
+                        />
+                    </Flex>
+
+                    <Text textAlign="center">{eventSpawnHover.name}</Text>
+
+                    <Divider my={2} />
+
+                    <Text textAlign="center">
+                        X: {eventSpawnHover.x}, Y: {eventSpawnHover.z}
+                    </Text>
                 </Box>
             )}
 

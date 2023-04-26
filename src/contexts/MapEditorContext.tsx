@@ -8,6 +8,7 @@ import {
     useState,
 } from "react";
 import { AreaFlagsXMLRoot, Element2 } from "src/@types/area_flags";
+import { Element as Event, EventSpawnsXMLRoot } from "src/@types/event_spawns";
 import { EventsXMLRoot } from "src/@types/events";
 import { AreaFlagType } from "src/@types/map";
 import { MapEditorType } from "src/data/map";
@@ -28,6 +29,13 @@ export type MapEditorContextType = {
     download: VoidFunction;
     events: EventsXMLRoot | null;
     setEvents: Dispatch<SetStateAction<EventsXMLRoot | null>>;
+    eventSpawns: Event | null;
+    setEventSpawns: Dispatch<SetStateAction<EventSpawnsXMLRoot | null>>;
+    hiddenEventSpawns: string[];
+    isHiddenEventSpawn: (spawn: string) => boolean;
+    toggleHiddenEventSpawn: (spawn: string) => void;
+    hideAllEventSpawns: () => void;
+    showAllEventSpawns: () => void;
 };
 
 const MapEditorContext = createContext<MapEditorContextType | null>(null);
@@ -45,6 +53,10 @@ function MapEditorProvider({ children }: Props) {
     const [events, setEvents] = useState<EventsXMLRoot | null>(null);
     const [selectedAreaType, setSelectedAreaType] =
         useState<AreaFlagType | null>(null);
+    const [hiddenEventSpawns, setHiddenEventSpawns] = useState<string[]>([]);
+    const [eventSpawns, setEventSpawns] = useState<EventSpawnsXMLRoot | null>(
+        null
+    );
 
     const territoryTypeList = useMemo(() => {
         if (!territories) return undefined;
@@ -53,6 +65,12 @@ function MapEditorProvider({ children }: Props) {
             .find((el) => el.name === "zg-config")
             ?.elements?.find((el) => el.name === "territory-type-list");
     }, [territories]);
+
+    const spawns = useMemo(() => {
+        if (!eventSpawns) return null;
+
+        return eventSpawns.elements.find((el) => el.name === "eventposdef");
+    }, [eventSpawns]);
 
     const handleDownload = () => {
         if (!territories) return;
@@ -75,6 +93,12 @@ function MapEditorProvider({ children }: Props) {
         // Clean up and remove the link
         link.parentNode!.removeChild(link);
     };
+
+    /**
+     * ===================
+     * =   Territories   =
+     * ===================
+     */
 
     const isHiddenTerritory = (territory: string) =>
         hiddenTerritories.includes(territory);
@@ -110,9 +134,46 @@ function MapEditorProvider({ children }: Props) {
         setHiddenTerritories([]);
     };
 
+    /**
+     * ====================
+     * =   Event Spawns   =
+     * ====================
+     */
+
+    const isHiddenEventSpawn = (spawn: string) =>
+        hiddenEventSpawns.includes(spawn);
+
+    const toggleHiddenEventSpawn = (spawn: string) => {
+        if (isHiddenEventSpawn(spawn)) {
+            setHiddenEventSpawns(hiddenEventSpawns.filter((t) => t !== spawn));
+        } else {
+            setHiddenEventSpawns([...hiddenEventSpawns, spawn]);
+        }
+    };
+
+    const hideAllEventSpawns = () => {
+        if (!spawns || !spawns.elements) return;
+
+        const spawnsToHide: string[] = [];
+
+        for (const event of spawns.elements) {
+            spawnsToHide.push(event.attributes.name);
+        }
+
+        setHiddenEventSpawns(spawnsToHide);
+    };
+
+    const showAllEventSpawns = () => {
+        setHiddenEventSpawns([]);
+    };
+
     useEffect(() => {
         if (!territories) setHiddenTerritories([]);
     }, [territories]);
+
+    useEffect(() => {
+        if (!eventSpawns) setHiddenEventSpawns([]);
+    }, [eventSpawns]);
 
     return (
         <MapEditorContext.Provider
@@ -131,6 +192,13 @@ function MapEditorProvider({ children }: Props) {
                 download: handleDownload,
                 events,
                 setEvents,
+                eventSpawns: spawns ?? null,
+                setEventSpawns,
+                hiddenEventSpawns,
+                hideAllEventSpawns,
+                isHiddenEventSpawn,
+                showAllEventSpawns,
+                toggleHiddenEventSpawn,
             }}
         >
             {children}

@@ -10,3 +10,10 @@ export type AreaFlagType = {
     z: string;
     r: string;
 };
+
+export type EventSpawnType = {
+    name: string;
+    x: string;
+    z: string;
+    a: string;
+};
