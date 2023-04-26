@@ -338,13 +338,20 @@ export default function Map({ map }: Props) {
     useEffect(() => {
         if (!background) return;
 
+        let hoveringAreaType = false;
+        let hoveringEventSpawn = false;
+
         // Check if mouse position in world is colliding with a territory
         if (territories && territories.elements) {
             for (const territoryType of territories.elements) {
+                if (hoveringAreaType) break;
+
                 if (!territoryType.elements || !territoryType.attributes?.name)
                     continue;
 
                 for (const territory of territoryType.elements) {
+                    if (hoveringAreaType) break;
+
                     if (
                         !territory.elements ||
                         isHiddenTerritory(territory.attributes.name)
@@ -367,7 +374,8 @@ export default function Map({ map }: Props) {
                                 territoryType: territoryType.attributes.name,
                                 territoryName: territory.attributes.name,
                             });
-                            return;
+                            hoveringAreaType = true;
+                            break;
                         }
                     }
                 }
@@ -376,6 +384,8 @@ export default function Map({ map }: Props) {
 
         if (eventSpawns) {
             for (const spawn of eventSpawns.elements) {
+                if (hoveringEventSpawn) break;
+
                 if (
                     EVENT_SPAWN_BLACKLIST.includes(spawn.attributes.name) ||
                     isHiddenEventSpawn(spawn.attributes.name) ||
@@ -408,14 +418,20 @@ export default function Map({ map }: Props) {
                             z: zone.attributes.z,
                             a: zone.attributes.a,
                         });
-                        return;
+                        hoveringEventSpawn = true;
+                        break;
                     }
                 }
             }
         }
 
-        setAreaTypeHover(null);
-        setEventSpawnHover(null);
+        if (!hoveringAreaType) {
+            setAreaTypeHover(null);
+        }
+
+        if (!hoveringEventSpawn) {
+            setEventSpawnHover(null);
+        }
     }, [background, mousePositionInMap.x, mousePositionInMap.y]);
 
     // update last offset
